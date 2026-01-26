@@ -106,13 +106,13 @@ impl Solvable for Sudoku {
                 println!();
             }
         }
-
-        println!();
     }
 }
 
 fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
     sudoku.print();
+    
+    thread::sleep(delay);
 
     if idx == 81 {
         return true;
@@ -141,8 +141,6 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
         sudoku.grid[y][x] = 0;
     }
 
-    thread::sleep(delay);
-
     false
 }
 
@@ -167,7 +165,7 @@ fn main() {
     /* Register handler for ^c */
     ctrlc::set_handler(move || {
         /* Show terminal cursor */
-        print!("\x1b[?25h");
+        println!("\x1b[?25h");
 
         process::exit(0);
     }).expect("Error setting abort handler.");
