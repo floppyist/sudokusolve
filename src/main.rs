@@ -2,6 +2,12 @@ use std::env;
 use std::{thread, time, process};
 use std::collections::HashSet;
 
+const CLI_RED: &str = "\x1b[31m";
+const CLI_GREEN: &str = "\x1b[32m";
+const CLI_YELLOW: &str = "\x1b[33m";
+const CLI_BOLD: &str = "\x1b[1m";
+const CLI_RESET: &str = "\x1b[0m";
+
 #[derive(Debug)]
 enum SudokuError {
     ImpossibleToSolve,
@@ -151,8 +157,8 @@ fn main() {
             }
 
             Err(e) => {
-                println!("{}", e);
-                print!("Usage: ./sudokusolve <delay>");
+                println!("{CLI_BOLD}Error: {CLI_RED}{}{CLI_RESET}\n", e);
+                println!("{CLI_BOLD}Usage:{CLI_RESET} ./sudokusolve <delay (u64)>");
                 return;
             }
         }
@@ -205,8 +211,8 @@ fn main() {
     grids.push(solvable);
     grids.push(unsolvable);
 
-    for (i, g) in grids.iter().enumerate() {
-        let mut sudoku = Sudoku { grid: *g };
+    for g in grids {
+        let mut sudoku = Sudoku { grid: g };
 
         match sudoku.solve(delay) {
             Ok(_) => {
@@ -214,7 +220,7 @@ fn main() {
             }
 
             Err(e) => {
-                println!("{:?}", e);
+                println!("{CLI_RED}{:?}{CLI_RESET}", e);
             }
         }
     }
