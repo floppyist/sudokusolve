@@ -24,12 +24,12 @@ impl Sudoku {
         let mut working: HashSet<u8> = HashSet::new();
 
         /* Get chunk values */
-        let x_chunk = col / 3;
-        let y_chunk = row / 3;
+        let col_chunk = col / 3; 
+        let row_chunk = row / 3;
 
         /* Get first chunk item (upper left corner) */
-        let mut x_chunk_start = x_chunk * 3;
-        let mut y_chunk_start = y_chunk * 3;
+        let mut col_chunk_start = col_chunk * 3;
+        let mut row_chunk_start = row_chunk * 3;
 
         for idx in 0..9 {
             let x_val = self.grid[col][idx];
@@ -46,17 +46,17 @@ impl Sudoku {
             }
 
             /* Chunk */
-            let val = self.grid[x_chunk_start][y_chunk_start];
+            let val = self.grid[col_chunk_start][row_chunk_start];
 
             if val != 0 {
                 working.insert(val);
             }
 
             if (idx + 1) % 3 == 0 {
-                x_chunk_start -= 2;
-                y_chunk_start += 1;
+                col_chunk_start -= 2;
+                row_chunk_start += 1;
             } else {
-                x_chunk_start += 1;
+                col_chunk_start += 1;
             }
         }
 
@@ -118,11 +118,11 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
         return true;
     }
 
-    let row: usize = idx % 9; // x
-    let col: usize = idx / 9; // y
-    let val = sudoku.grid[row][col];
+    let row: usize = idx % 9;
+    let col: usize = idx / 9;
+    let element = sudoku.grid[col][row];
 
-    if val != 0 {
+    if element != 0 {
         return backtrack(sudoku, idx + 1, delay);
     }
 
@@ -157,7 +157,6 @@ fn main() {
             Err(e) => {
                 println!("{CLI_BOLD}Error: {CLI_RED}{}{CLI_RESET}\n", e);
                 println!("{CLI_BOLD}Usage:{CLI_RESET} ./sudokusolve <delay (u64)>");
-
                 return;
             }
         }
@@ -219,7 +218,7 @@ fn main() {
             }
 
             Err(e) => {
-                println!("{CLI_YELLOW}{:?}{CLI_RESET}", e);
+                println!("{CLI_RED}{:?}{CLI_RESET}", e);
             }
         }
     }
