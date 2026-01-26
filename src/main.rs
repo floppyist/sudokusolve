@@ -19,21 +19,21 @@ struct Sudoku {
 
 impl Sudoku {
     /* TODO: Dirty code */
-    fn get_available_numbers(&self, x_idx: usize, y_idx: usize) -> Vec<u8> {
+    fn get_available_numbers(&self, col: usize, row: usize) -> Vec<u8> {
         let mut result: Vec<u8> = Vec::new();
         let mut working: HashSet<u8> = HashSet::new();
 
         /* Get chunk values */
-        let x_chunk = x_idx / 3;
-        let y_chunk = y_idx / 3;
+        let x_chunk = col / 3;
+        let y_chunk = row / 3;
 
         /* Get first chunk item (upper left corner) */
         let mut x_chunk_start = x_chunk * 3;
         let mut y_chunk_start = y_chunk * 3;
 
         for idx in 0..9 {
-            let x_val = self.grid[x_idx][idx];
-            let y_val = self.grid[idx][y_idx];
+            let x_val = self.grid[col][idx];
+            let y_val = self.grid[idx][row];
 
             /* Col */
             if x_val != 0 {
@@ -118,19 +118,19 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
         return true;
     }
 
-    let x: usize = idx % 9;
-    let y: usize = idx / 9;
-    let element = sudoku.grid[y][x];
+    let row: usize = idx % 9; // x
+    let col: usize = idx / 9; // y
+    let val = sudoku.grid[row][col];
 
-    if element != 0 {
+    if val != 0 {
         return backtrack(sudoku, idx + 1, delay);
     }
 
-    let available = sudoku.get_available_numbers(y, x);
+    let available = sudoku.get_available_numbers(col, row);
 
     for i in available {
         /* DO */
-        sudoku.grid[y][x] = i;
+        sudoku.grid[col][row] = i;
 
         /* Remember successful path */
         if backtrack(sudoku, idx + 1, delay) {
@@ -138,7 +138,7 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
         }
 
         /* UNDO */
-        sudoku.grid[y][x] = 0;
+        sudoku.grid[col][row] = 0;
     }
 
     false
@@ -157,6 +157,7 @@ fn main() {
             Err(e) => {
                 println!("{CLI_BOLD}Error: {CLI_RED}{}{CLI_RESET}\n", e);
                 println!("{CLI_BOLD}Usage:{CLI_RESET} ./sudokusolve <delay (u64)>");
+
                 return;
             }
         }
@@ -218,7 +219,7 @@ fn main() {
             }
 
             Err(e) => {
-                println!("{CLI_RED}{:?}{CLI_RESET}", e);
+                println!("{CLI_YELLOW}{:?}{CLI_RESET}", e);
             }
         }
     }
