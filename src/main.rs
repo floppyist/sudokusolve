@@ -1,3 +1,5 @@
+use std::env;
+use std::{thread, time, process};
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -10,15 +12,16 @@ struct Sudoku {
 }
 
 impl Sudoku {
+    /* TODO: Dirty code */
     fn get_available_numbers(&self, x_idx: usize, y_idx: usize) -> Vec<u8> {
         let mut result: Vec<u8> = Vec::new();
         let mut working: HashSet<u8> = HashSet::new();
 
-        // Get chunk values
+        /* Get chunk values */
         let x_chunk = x_idx / 3;
         let y_chunk = y_idx / 3;
 
-        // Get first chunk item (upper left corner)
+        /* Get first chunk item (upper left corner) */
         let mut x_chunk_start = x_chunk * 3;
         let mut y_chunk_start = y_chunk * 3;
 
@@ -26,17 +29,17 @@ impl Sudoku {
             let x_val = self.grid[x_idx][idx];
             let y_val = self.grid[idx][y_idx];
 
-            // Col
+            /* Col */
             if x_val != 0 {
                 working.insert(x_val);
             }
 
-            // Row
+            /* Row */
             if y_val != 0 {
                 working.insert(y_val);
             }
 
-            // Chunk
+            /* Chunk */
             let val = self.grid[x_chunk_start][y_chunk_start];
 
             if val != 0 {
@@ -51,7 +54,7 @@ impl Sudoku {
             }
         }
 
-        // Invert
+        /* Invert */
         for idx in 1..10 {
             if working.iter().any(|&e| e == idx) {
                 continue;
@@ -65,20 +68,46 @@ impl Sudoku {
 }
 
 trait Solvable {
-    fn solve(&mut self) -> Result<[[u8; 9]; 9], SudokuError>;
+    fn solve(&mut self, delay: time::Duration) -> Result<[[u8; 9]; 9], SudokuError>;
+    fn print(&self);
 }
 
 impl Solvable for Sudoku {
-    fn solve(&mut self) -> Result<[[u8; 9]; 9], SudokuError> {
-        if backtrack(self, 0) {
+    fn solve(&mut self, delay: time::Duration) -> Result<[[u8; 9]; 9], SudokuError> {
+        if backtrack(self, 0, delay) {
             Ok(self.grid)
         } else {
             Err(SudokuError::ImpossibleToSolve)
         }
     }
+
+    fn print(&self) {
+        /* Move cursor to [0][0] to overwrite instead of syscall */
+        print!("\x1b[H");
+
+        for y in 0..self.grid.len() {
+            for x in 0..self.grid.len() {
+                print!("{} ", self.grid[y][x]);
+
+                if (x + 1) % 3 == 0 {
+                    print!(" "); 
+                }
+            }
+
+            println!();
+
+            if (y + 1) % 3 == 0 {
+                println!();
+            }
+        }
+
+        println!();
+    }
 }
 
-fn backtrack(sudoku: &mut Sudoku, idx: usize) -> bool {
+fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
+    sudoku.print();
+
     if idx == 81 {
         return true;
     }
@@ -88,29 +117,67 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize) -> bool {
     let element = sudoku.grid[y][x];
 
     if element != 0 {
-        return backtrack(sudoku, idx + 1);
+        return backtrack(sudoku, idx + 1, delay);
     }
 
     let available = sudoku.get_available_numbers(y, x);
 
     for i in available {
-        // DO value
+        /* DO */
         sudoku.grid[y][x] = i;
 
-        // Note successfull run
-        if backtrack(sudoku, idx + 1) {
+        /* Remember successful path */
+        if backtrack(sudoku, idx + 1, delay) {
             return true;
         }
 
-        // UNDO value
+        /* UNDO */
         sudoku.grid[y][x] = 0;
     }
+
+    thread::sleep(delay);
 
     false
 }
 
 fn main() {
-    let grid: [[u8; 9]; 9] = [
+    let args: Vec<String> = env::args().collect();
+    let mut delay: time::Duration = time::Duration::from_millis(0);
+
+    if args.len() > 1 {
+        match args[1].parse::<u64>() {
+            Ok(v) => {
+                delay = time::Duration::from_millis(v);
+            }
+
+            Err(e) => {
+                println!("{}", e);
+                print!("Usage: ./sudokusolve <delay>");
+                return;
+            }
+        }
+    }
+
+    /* Register handler for ^c */
+    ctrlc::set_handler(move || {
+        /* Show terminal cursor */
+        print!("\x1b[?25h");
+
+        process::exit(0);
+    }).expect("Error setting abort handler.");
+
+    /* Clear screen */
+    print!("{}[2J", 27 as char);
+
+    /* Hide cursor */
+    print!("\x1b[?25l");
+
+    let mut grids: Vec<[[u8; 9]; 9]> = Vec::new();
+
+    /* Grid variants */
+    let empty: [[u8; 9]; 9] = [[0; 9]; 9];
+
+    let solvable: [[u8; 9]; 9] = [
         [1, 0, 0, 0, 0, 7, 0, 9, 0],
         [0, 3, 0, 0, 2, 0, 0, 0, 8],
         [0, 0, 9, 6, 0, 0, 5, 0, 0],
@@ -122,7 +189,36 @@ fn main() {
         [0, 0, 7, 0, 0, 0, 3, 0, 0],
     ];
 
-    let mut sudoku = Sudoku { grid };
+    let unsolvable: [[u8; 9]; 9] = [
+        [5, 1, 6, 8, 4, 9, 7, 3, 2],
+        [3, 0, 7, 6, 0, 5, 0, 0, 0],
+        [8, 0, 9, 7, 0, 0, 0, 6, 5],
+        [1, 3, 5, 0, 6, 0, 9, 0, 7],
+        [4, 7, 2, 5, 9, 1, 0, 0, 6],
+        [9, 6, 8, 3, 7, 0, 0, 5, 0],
+        [2, 5, 3, 1, 8, 6, 0, 7, 4],
+        [6, 8, 4, 2, 0, 7, 5, 0, 0],
+        [7, 9, 1, 0, 5, 0, 6, 0, 8],
+    ];
 
-    println!("{:?}", sudoku.solve().unwrap());
+    grids.push(empty);
+    grids.push(solvable);
+    grids.push(unsolvable);
+
+    for (i, g) in grids.iter().enumerate() {
+        let mut sudoku = Sudoku { grid: *g };
+
+        match sudoku.solve(delay) {
+            Ok(_) => {
+                sudoku.print();
+            }
+
+            Err(e) => {
+                println!("{:?}", e);
+            }
+        }
+    }
+
+    /* Show terminal cursor */
+    print!("\x1b[?25h");
 }
