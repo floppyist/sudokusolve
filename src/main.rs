@@ -1,10 +1,8 @@
 use std::env;
-use std::{thread, time, process};
-use std::collections::HashSet;
+use std::{process, thread, time};
 
 const CLI_RED: &str = "\x1b[31m";
 const CLI_GREEN: &str = "\x1b[32m";
-const CLI_YELLOW: &str = "\x1b[33m";
 const CLI_BOLD: &str = "\x1b[1m";
 const CLI_RESET: &str = "\x1b[0m";
 
@@ -14,14 +12,22 @@ enum SudokuError {
 }
 
 struct Sudoku {
+    init: [[u8; 9]; 9],
     grid: [[u8; 9]; 9],
 }
 
 impl Sudoku {
+    fn new(grid: [[u8; 9]; 9]) -> Self {
+        Self {
+            init: grid,
+            grid,
+        }
+    }
+
     fn is_available(&self, row: usize, col: usize, val: u8) -> bool {
         /* Determine upper left corner of the current chunk */
         let row_chunk_pointer = (row / 3) * 3;
-        let col_chunk_pointer = (col / 3) * 3; 
+        let col_chunk_pointer = (col / 3) * 3;
 
         for idx in 0..9 {
             /* Row values */
@@ -47,6 +53,11 @@ impl Sudoku {
     }
 }
 
+struct SudokuOptions {
+    print: bool,
+    delay: time::Duration,
+}
+
 trait Solvable {
     fn solve(&mut self, delay: time::Duration) -> Result<[[u8; 9]; 9], SudokuError>;
     fn print(&self);
@@ -69,12 +80,14 @@ impl Solvable for Sudoku {
             for col in 0..self.grid.len() {
                 if self.grid[row][col] == 0 {
                     print!("  ");
+                } else if self.init[row][col] != 0 {
+                    print!("{CLI_BOLD}{}{CLI_RESET} ", self.grid[row][col]);
                 } else {
-                    print!("{} ", self.grid[row][col]);
+                    print!("{CLI_GREEN}{}{CLI_RESET} ", self.grid[row][col]);
                 }
 
                 if (col + 1) % 3 == 0 {
-                    print!(" "); 
+                    print!(" ");
                 }
             }
 
@@ -88,7 +101,8 @@ impl Solvable for Sudoku {
 }
 
 fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
-    sudoku.print();
+    /* Just print if delay was set */
+    if delay.as_millis() > 0 { sudoku.print() };
 
     thread::sleep(delay);
 
@@ -119,23 +133,59 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
     false
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let mut delay: time::Duration = time::Duration::from_millis(0);
+fn handle_args(args: &[String]) -> SudokuOptions {
+    let opts = SudokuOptions {
+        print: false,
+        delay: time::Duration::from_millis(0),
+    };
 
-    if args.len() > 1 {
-        match args[1].parse::<u64>() {
-            Ok(v) => {
-                delay = time::Duration::from_millis(v);
+    let mut iter = args.iter().skip(1);
+
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "-g" | "--grid" => {
+
             }
 
-            Err(e) => {
-                println!("{CLI_BOLD}Error: {CLI_RED}{}{CLI_RESET}\n", e);
-                println!("{CLI_BOLD}Usage:{CLI_RESET} ./sudokusolve <delay (u64)>");
-                return;
+            "-p" | "--print" => {
+
+            }
+
+            "-d" | "--delay" => {
+
+            }
+
+            "-h" | "--help" => {
+                print_help();
+                process::exit(0);
+            }
+
+            a => {
+                println!("[{CLI_RED}ERROR{CLI_RESET}]: Invalid parameter: {}", a);
             }
         }
     }
+
+    opts
+}
+
+fn print_help() {
+    println!("Usage:");
+    println!(" ./sudokusolve [options]\n");
+
+    println!("Example:");
+    println!(" ./sudokusolve -p -d 250\n");
+
+    println!("Options:");
+    println!(" -g, --grid  <grid> sets the grid to be solved");
+    println!(" -p, --print        if set every iteration will be visualized");
+    println!(" -d, --delay <ms>   sets the delay of every iteration");
+    println!(" -h, --help         shows this help dialog");
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let opts = handle_args(&args);
 
     /* Register handler for ^c */
     ctrlc::set_handler(move || {
@@ -146,17 +196,13 @@ fn main() {
     }).expect("Error setting abort handler.");
 
     /* Clear screen */
-    print!("{}[2J", 27 as char);
+    print!("\x1b[2J");
 
     /* Hide cursor */
     print!("\x1b[?25l");
 
-    let mut grids: Vec<[[u8; 9]; 9]> = Vec::new();
-
-    /* Grid variants */
-    let empty: [[u8; 9]; 9] = [[0; 9]; 9];
-
-    let solvable: [[u8; 9]; 9] = [
+    /* Grid */
+    let example: [[u8; 9]; 9] = [
         [1, 0, 0, 0, 0, 7, 0, 9, 0],
         [0, 3, 0, 0, 2, 0, 0, 0, 8],
         [0, 0, 9, 6, 0, 0, 5, 0, 0],
@@ -168,33 +214,15 @@ fn main() {
         [0, 0, 7, 0, 0, 0, 3, 0, 0],
     ];
 
-    let unsolvable: [[u8; 9]; 9] = [
-        [5, 1, 6, 8, 4, 9, 7, 3, 2],
-        [3, 0, 7, 6, 0, 5, 0, 0, 0],
-        [8, 0, 9, 7, 0, 0, 0, 6, 5],
-        [1, 3, 5, 0, 6, 0, 9, 0, 7],
-        [4, 7, 2, 5, 9, 1, 0, 0, 6],
-        [9, 6, 8, 3, 7, 0, 0, 5, 0],
-        [2, 5, 3, 1, 8, 6, 0, 7, 4],
-        [6, 8, 4, 2, 0, 7, 5, 0, 0],
-        [7, 9, 1, 0, 5, 0, 6, 0, 8],
-    ];
+    let mut sudoku = Sudoku::new(example);
 
-    grids.push(empty);
-    grids.push(solvable);
-    grids.push(unsolvable);
+    match sudoku.solve(opts.delay) {
+        Ok(_) => {
+            sudoku.print();
+        }
 
-    for g in grids {
-        let mut sudoku = Sudoku { grid: g };
-
-        match sudoku.solve(delay) {
-            Ok(_) => {
-                sudoku.print();
-            }
-
-            Err(e) => {
-                println!("{CLI_RED}{:?}{CLI_RESET}", e);
-            }
+        Err(e) => {
+            println!("{CLI_RED}{:?}{CLI_RESET}", e);
         }
     }
 
