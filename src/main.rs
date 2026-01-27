@@ -1,10 +1,10 @@
 use std::env;
 use std::{process, thread, time};
 
-const CLI_RED: &str = "\x1b[31m";
-const CLI_GREEN: &str = "\x1b[32m";
-const CLI_BOLD: &str = "\x1b[1m";
-const CLI_RESET: &str = "\x1b[0m";
+const RED: &str = "\x1b[31m";
+const GREEN: &str = "\x1b[32m";
+const BOLD: &str = "\x1b[1m";
+const RESET: &str = "\x1b[0m";
 
 #[derive(Debug)]
 enum SudokuError {
@@ -81,9 +81,9 @@ impl Solvable for Sudoku {
                 if self.grid[row][col] == 0 {
                     print!("  ");
                 } else if self.init[row][col] != 0 {
-                    print!("{CLI_BOLD}{}{CLI_RESET} ", self.grid[row][col]);
+                    print!("{BOLD}{}{RESET} ", self.grid[row][col]);
                 } else {
-                    print!("{CLI_GREEN}{}{CLI_RESET} ", self.grid[row][col]);
+                    print!("{GREEN}{}{RESET} ", self.grid[row][col]);
                 }
 
                 if (col + 1) % 3 == 0 {
@@ -161,7 +161,7 @@ fn handle_args(args: &[String]) -> SudokuOptions {
             }
 
             a => {
-                println!("[{CLI_RED}ERROR{CLI_RESET}]: Invalid parameter: {}", a);
+                println!("[{RED}ERROR{RESET}]: Invalid parameter: {}", a);
             }
         }
     }
@@ -170,17 +170,16 @@ fn handle_args(args: &[String]) -> SudokuOptions {
 }
 
 fn print_help() {
-    println!("Usage:");
-    println!(" ./sudokusolve [options]\n");
+    println!("{BOLD}Usage: ./sudokusolve{RESET} [options]\n");
 
-    println!("Example:");
-    println!(" ./sudokusolve -p -d 250\n");
+    println!("{BOLD}Example:{RESET}");
+    println!("{BOLD} ./sudokusolve -p -d {RESET}250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n");
 
-    println!("Options:");
-    println!(" -g, --grid  <grid> sets the grid to be solved");
-    println!(" -p, --print        if set every iteration will be visualized");
-    println!(" -d, --delay <ms>   sets the delay of every iteration");
-    println!(" -h, --help         shows this help dialog");
+    println!("{BOLD}Options:{RESET}");
+    println!(" {BOLD}-g, --grid  <grid>{RESET} sets the grid to be solved");
+    println!(" {BOLD}-p, --print       {RESET} if set every iteration will be visualized");
+    println!(" {BOLD}-d, --delay <ms>  {RESET} sets the delay of every iteration");
+    println!(" {BOLD}-h, --help        {RESET} shows this help dialog");
 }
 
 fn main() {
@@ -222,7 +221,7 @@ fn main() {
         }
 
         Err(e) => {
-            println!("{CLI_RED}{:?}{CLI_RESET}", e);
+            println!("{RED}{:?}{RESET}", e);
         }
     }
 
