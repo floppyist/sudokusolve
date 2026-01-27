@@ -18,58 +18,32 @@ struct Sudoku {
 }
 
 impl Sudoku {
-    /* TODO: Dirty code */
-    fn get_available_numbers(&self, col: usize, row: usize) -> Vec<u8> {
-        let mut result: Vec<u8> = Vec::new();
-        let mut working: HashSet<u8> = HashSet::new();
-
-        /* Get chunk values */
-        let col_chunk = col / 3; 
-        let row_chunk = row / 3;
-
-        /* Get first chunk item (upper left corner) */
-        let mut col_chunk_start = col_chunk * 3;
-        let mut row_chunk_start = row_chunk * 3;
+    fn is_available(&self, row: usize, col: usize, val: u8) -> bool {
+        /* Determine upper left corner of the current chunk */
+        let row_chunk_pointer = (row / 3) * 3;
+        let col_chunk_pointer = (col / 3) * 3; 
 
         for idx in 0..9 {
-            let x_val = self.grid[col][idx];
-            let y_val = self.grid[idx][row];
-
-            /* Col */
-            if x_val != 0 {
-                working.insert(x_val);
+            /* Row values */
+            if self.grid[row][idx] == val {
+                return false;
             }
 
-            /* Row */
-            if y_val != 0 {
-                working.insert(y_val);
+            /* Col values */
+            if self.grid[idx][col] == val {
+                return false;
             }
 
-            /* Chunk */
-            let val = self.grid[col_chunk_start][row_chunk_start];
+            /* Chunk values */
+            let current_row = row_chunk_pointer + (idx / 3);
+            let current_col = col_chunk_pointer + (idx % 3);
 
-            if val != 0 {
-                working.insert(val);
-            }
-
-            if (idx + 1) % 3 == 0 {
-                col_chunk_start -= 2;
-                row_chunk_start += 1;
-            } else {
-                col_chunk_start += 1;
+            if self.grid[current_row][current_col] == val {
+                return false;
             }
         }
 
-        /* Invert */
-        for idx in 1..10 {
-            if working.iter().any(|&e| e == idx) {
-                continue;
-            }
-
-            result.push(idx);
-        }
-
-        result
+        true
     }
 }
 
@@ -111,34 +85,31 @@ impl Solvable for Sudoku {
 
 fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
     sudoku.print();
-    
+
     thread::sleep(delay);
 
     if idx == 81 {
         return true;
     }
 
-    let row: usize = idx % 9;
-    let col: usize = idx / 9;
-    let element = sudoku.grid[col][row];
+    let row: usize = idx / 9;
+    let col: usize = idx % 9;
+    let element = sudoku.grid[row][col];
 
     if element != 0 {
         return backtrack(sudoku, idx + 1, delay);
     }
 
-    let available = sudoku.get_available_numbers(col, row);
+    for i in 1..10 {
+        if sudoku.is_available(row, col, i) {
+            sudoku.grid[row][col] = i;
 
-    for i in available {
-        /* DO */
-        sudoku.grid[col][row] = i;
+            if backtrack(sudoku, idx + 1, delay) {
+                return true;
+            }
 
-        /* Remember successful path */
-        if backtrack(sudoku, idx + 1, delay) {
-            return true;
+            sudoku.grid[row][col] = 0;
         }
-
-        /* UNDO */
-        sudoku.grid[col][row] = 0;
     }
 
     false
