@@ -65,18 +65,22 @@ impl Solvable for Sudoku {
         /* Move cursor to [0][0] to overwrite instead of syscall */
         print!("\x1b[H");
 
-        for y in 0..self.grid.len() {
-            for x in 0..self.grid.len() {
-                print!("{} ", self.grid[y][x]);
+        for row in 0..self.grid.len() {
+            for col in 0..self.grid.len() {
+                if self.grid[row][col] == 0 {
+                    print!("  ");
+                } else {
+                    print!("{} ", self.grid[row][col]);
+                }
 
-                if (x + 1) % 3 == 0 {
+                if (col + 1) % 3 == 0 {
                     print!(" "); 
                 }
             }
 
             println!();
 
-            if (y + 1) % 3 == 0 {
+            if (row + 1) % 3 == 0 {
                 println!();
             }
         }
