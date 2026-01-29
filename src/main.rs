@@ -6,6 +6,18 @@ const GREEN: &str = "\x1b[32m";
 const BOLD: &str = "\x1b[1m";
 const RESET: &str = "\x1b[0m";
 
+const UPPER_LEFT: &str = "╔";
+const UPPER_RIGHT: &str = "╗";
+const BOTTOM_LEFT: &str = "╚";
+const BOTTOM_RIGHT: &str = "╝";
+const HORIZONTAL: &str = "═";
+const HORIZONTAL_TOP: &str = "╩";
+const HORIZONTAL_BOTTOM: &str = "╦";
+const VERTICAL: &str = "║";
+const VERTICAL_LEFT: &str = "╣";
+const VERTICAL_RIGHT: &str = "╠";
+const CROSS: &str = "╬";
+
 #[derive(Debug)]
 enum SudokuError {
     ImpossibleToSolve,
@@ -14,13 +26,15 @@ enum SudokuError {
 struct Sudoku {
     init: [[u8; 9]; 9],
     grid: [[u8; 9]; 9],
+    opts: SudokuOptions,
 }
 
 impl Sudoku {
-    fn new(grid: [[u8; 9]; 9]) -> Self {
+    fn new(grid: [[u8; 9]; 9], opts: SudokuOptions) -> Self {
         Self {
             init: grid,
             grid,
+            opts,
         }
     }
 
@@ -59,13 +73,13 @@ struct SudokuOptions {
 }
 
 trait Solvable {
-    fn solve(&mut self, delay: time::Duration) -> Result<[[u8; 9]; 9], SudokuError>;
+    fn solve(&mut self) -> Result<[[u8; 9]; 9], SudokuError>;
     fn print(&self);
 }
 
 impl Solvable for Sudoku {
-    fn solve(&mut self, delay: time::Duration) -> Result<[[u8; 9]; 9], SudokuError> {
-        if backtrack(self, 0, delay) {
+    fn solve(&mut self) -> Result<[[u8; 9]; 9], SudokuError> {
+        if backtrack(self, 0, self.opts.delay, self.opts.print) {
             Ok(self.grid)
         } else {
             Err(SudokuError::ImpossibleToSolve)
@@ -76,35 +90,55 @@ impl Solvable for Sudoku {
         /* Move cursor to [0][0] to overwrite instead of syscall */
         print!("\x1b[H");
 
+        println!(
+            "{UPPER_LEFT}{0}{HORIZONTAL_BOTTOM}{0}{HORIZONTAL_BOTTOM}{0}{UPPER_RIGHT}",
+            HORIZONTAL.repeat(7)
+        );
+
         for row in 0..self.grid.len() {
             for col in 0..self.grid.len() {
-                if self.grid[row][col] == 0 {
-                    print!("  ");
-                } else if self.init[row][col] != 0 {
-                    print!("{BOLD}{}{RESET} ", self.grid[row][col]);
+                if col == 0 {
+                    print!("{VERTICAL} ");
+                }
+
+                if self.init[row][col] != 0 {
+                    print!("{BOLD}{RED}{}{RESET} ", self.grid[row][col]);
                 } else {
                     print!("{GREEN}{}{RESET} ", self.grid[row][col]);
                 }
 
                 if (col + 1) % 3 == 0 {
-                    print!(" ");
+                    print!("{VERTICAL} ");
                 }
             }
 
             println!();
 
-            if (row + 1) % 3 == 0 {
-                println!();
+            if (row + 1) % 3 == 0 && row != 8 {
+                println!(
+                    "{VERTICAL_RIGHT}{0}{CROSS}{0}{CROSS}{0}{VERTICAL_LEFT}",
+                    HORIZONTAL.repeat(7)
+                );
             }
         }
+
+        println!(
+            "{BOTTOM_LEFT}{0}{HORIZONTAL_TOP}{0}{HORIZONTAL_TOP}{0}{BOTTOM_RIGHT}",
+            HORIZONTAL.repeat(7)
+        );
     }
 }
 
-fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
-    /* Just print if delay was set */
-    if delay.as_millis() > 0 { sudoku.print() };
+fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration, show: bool) -> bool {
+    /* Just print if print flag was set */
+    if show {
+        sudoku.print()
+    };
 
-    thread::sleep(delay);
+    /* Only use thread sleep if delay was set */
+    if delay.as_millis() > 0 {
+        thread::sleep(delay)
+    };
 
     if idx == 81 {
         return true;
@@ -115,14 +149,14 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
     let element = sudoku.grid[row][col];
 
     if element != 0 {
-        return backtrack(sudoku, idx + 1, delay);
+        return backtrack(sudoku, idx + 1, delay, show);
     }
 
     for i in 1..10 {
         if sudoku.is_available(row, col, i) {
             sudoku.grid[row][col] = i;
 
-            if backtrack(sudoku, idx + 1, delay) {
+            if backtrack(sudoku, idx + 1, delay, show) {
                 return true;
             }
 
@@ -133,8 +167,14 @@ fn backtrack(sudoku: &mut Sudoku, idx: usize, delay: time::Duration) -> bool {
     false
 }
 
-fn handle_args(args: &[String]) -> SudokuOptions {
-    let opts = SudokuOptions {
+#[derive(Debug)]
+enum ArgumentError {
+    InvalidErr,
+    ParseErr,
+}
+
+fn handle_args(args: &[String]) -> Result<SudokuOptions, ArgumentError> {
+    let mut opts = SudokuOptions {
         print: false,
         delay: time::Duration::from_millis(0),
     };
@@ -143,16 +183,24 @@ fn handle_args(args: &[String]) -> SudokuOptions {
 
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "-g" | "--grid" => {
-
-            }
+            "-g" | "--grid" => { /* TODO: Implement grid input [0.1.2...5..3.3.24.324 ...] */ }
 
             "-p" | "--print" => {
-
+                opts.print = true;
             }
 
             "-d" | "--delay" => {
+                if let Some(next_arg) = iter.next() {
+                    match next_arg.parse() {
+                        Ok(v) => {
+                            opts.delay = time::Duration::from_millis(v);
+                        }
 
+                        Err(_) => {
+                            return Err(ArgumentError::ParseErr);
+                        }
+                    }
+                }
             }
 
             "-h" | "--help" => {
@@ -160,39 +208,60 @@ fn handle_args(args: &[String]) -> SudokuOptions {
                 process::exit(0);
             }
 
-            a => {
-                println!("[{RED}ERROR{RESET}]: Invalid parameter: {}", a);
+            _ => {
+                print_help();
+                return Err(ArgumentError::InvalidErr);
             }
         }
     }
 
-    opts
+    Ok(opts)
 }
 
 fn print_help() {
+    /* Move cursor to [0][0] to overwrite instead of syscall */
+    print!("\x1b[H");
+
     println!("{BOLD}Usage: ./sudokusolve{RESET} [options]\n");
 
     println!("{BOLD}Example:{RESET}");
-    println!("{BOLD} ./sudokusolve -p -d {RESET}250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n");
+    println!(
+        " {BOLD}./sudokusolve -p -d{RESET} 250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n"
+    );
 
     println!("{BOLD}Options:{RESET}");
     println!(" {BOLD}-g, --grid  <grid>{RESET} sets the grid to be solved");
     println!(" {BOLD}-p, --print       {RESET} if set every iteration will be visualized");
     println!(" {BOLD}-d, --delay <ms>  {RESET} sets the delay of every iteration");
     println!(" {BOLD}-h, --help        {RESET} shows this help dialog");
+
+    /* Show terminal cursor */
+    print!("\x1b[?25h");
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let opts = handle_args(&args);
-
     /* Register handler for ^c */
+    /* Must be in the first position because “move” is used here, which ensures that the ownership of all surrounding variables is transferred to the closure. */
     ctrlc::set_handler(move || {
         /* Show terminal cursor */
         println!("\x1b[?25h");
 
         process::exit(0);
-    }).expect("Error setting abort handler.");
+    })
+    .expect("[{RED}{BOLD}CRITICAL{RESET}]: Error setting abort handler.");
+
+    let args: Vec<String> = env::args().collect();
+
+    let opts = match handle_args(&args) {
+        Ok(o) => o,
+        Err(e) => {
+            /* Show terminal cursor */
+            print!("\x1b[?25h");
+
+            eprintln!("[{RED}ERROR{RESET}]: {:?}", e);
+            process::exit(1);
+        }
+    };
 
     /* Clear screen */
     print!("\x1b[2J");
@@ -213,15 +282,15 @@ fn main() {
         [0, 0, 7, 0, 0, 0, 3, 0, 0],
     ];
 
-    let mut sudoku = Sudoku::new(example);
+    let mut sudoku = Sudoku::new(example, opts);
 
-    match sudoku.solve(opts.delay) {
+    match sudoku.solve() {
         Ok(_) => {
             sudoku.print();
         }
 
         Err(e) => {
-            println!("{RED}{:?}{RESET}", e);
+            println!("[{RED}ERROR{RESET}]: {:?}", e);
         }
     }
 
