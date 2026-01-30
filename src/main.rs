@@ -105,8 +105,10 @@ impl Solvable for Sudoku {
 
                 if self.init[row][col] != 0 {
                     print!("{BOLD}{RED}{}{RESET} ", self.grid[row][col]);
-                } else {
+                } else if self.grid[row][col] != 0 {
                     print!("{GREEN}{}{RESET} ", self.grid[row][col]);
+                } else {
+                    print!("  ");
                 }
 
                 if (col + 1) % 3 == 0 {
@@ -226,15 +228,12 @@ fn handle_args(args: &[String]) -> Result<SudokuOptions, ArgumentError> {
 }
 
 fn print_help() {
-    /* Move cursor to [0][0] to overwrite instead of syscall */
-    print!("\x1b[H");
-
     println!("{BOLD}Usage: ./sudokusolve{RESET} [options]\n");
 
     println!("{BOLD}Example:{RESET}");
     println!(
-    " {BOLD}./sudokusolve -p -d{RESET} 250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n"
-);
+        " {BOLD}./sudokusolve -p -d{RESET} 250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n"
+    );
 
     println!("{BOLD}Options:{RESET}");
     println!(" {BOLD}-g, --grid    <grid>{RESET} sets the grid to be solved");
@@ -242,18 +241,9 @@ fn print_help() {
     println!(" {BOLD}-d, --delay   <ms>  {RESET} sets the delay of every iteration");
     println!(" {BOLD}-m, --measure       {RESET} if set time will be measured and shown");
     println!(" {BOLD}-h, --help          {RESET} shows this help dialog");
-
-    /* Show terminal cursor */
-    print!("\x1b[?25h");
 }
 
 fn main() {
-    /* Clear screen */
-    print!("\x1b[2J");
-
-    /* Hide cursor */
-    print!("\x1b[?25l");
-
     /* Register handler for ^c */
     /* INFO: Must be in the first position because “move” is used here, which ensures that the ownership of all surrounding variables is transferred to the closure. */
     ctrlc::set_handler(move || {
@@ -262,7 +252,7 @@ fn main() {
 
         process::exit(0);
     })
-        .expect("[{RED}{BOLD}CRITICAL{RESET}]: Error setting abort handler.");
+    .expect("[{RED}{BOLD}CRITICAL{RESET}]: Error setting abort handler.");
 
     let args: Vec<String> = env::args().collect();
 
@@ -277,6 +267,12 @@ fn main() {
         }
     };
 
+    /* Clear screen */
+    print!("\x1b[2J");
+
+    /* Hide cursor */
+    print!("\x1b[?25l");
+
     /* Grid */
     let example: [[u8; 9]; 9] = [
         [1, 0, 0, 0, 0, 7, 0, 9, 0],
@@ -286,7 +282,7 @@ fn main() {
         [0, 1, 0, 0, 8, 0, 0, 0, 2],
         [6, 0, 0, 0, 0, 4, 0, 0, 0],
         [3, 0, 0, 0, 0, 0, 0, 1, 0],
-        [0, 4, 1, 0, 9, 0, 0, 0, 7],
+        [0, 4, 1, 0, 0, 0, 0, 0, 7],
         [0, 0, 7, 0, 0, 0, 3, 0, 0],
     ];
 
@@ -307,7 +303,10 @@ fn main() {
     }
 
     if sudoku.opts.measure {
-        println!("[{YELLOW}INFO{RESET}]: Finished in {BOLD}{:.2?}.{RESET}", now.elapsed());
+        println!(
+            "[{YELLOW}INFO{RESET}]: Finished in {BOLD}{:.2?}.{RESET}",
+            now.elapsed()
+        );
     }
 
     /* Show terminal cursor */
