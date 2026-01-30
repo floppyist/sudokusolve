@@ -3,6 +3,7 @@ use std::{process, thread, time};
 
 const RED: &str = "\x1b[31m";
 const GREEN: &str = "\x1b[32m";
+const YELLOW: &str = "\x1b[33m";
 const BOLD: &str = "\x1b[1m";
 const RESET: &str = "\x1b[0m";
 
@@ -70,6 +71,7 @@ impl Sudoku {
 struct SudokuOptions {
     print: bool,
     delay: time::Duration,
+    measure: bool,
 }
 
 trait Solvable {
@@ -177,6 +179,7 @@ fn handle_args(args: &[String]) -> Result<SudokuOptions, ArgumentError> {
     let mut opts = SudokuOptions {
         print: false,
         delay: time::Duration::from_millis(0),
+        measure: false,
     };
 
     let mut iter = args.iter().skip(1);
@@ -203,6 +206,10 @@ fn handle_args(args: &[String]) -> Result<SudokuOptions, ArgumentError> {
                 }
             }
 
+            "-m" | "--measure" => {
+                opts.measure = true;
+            }
+
             "-h" | "--help" => {
                 print_help();
                 process::exit(0);
@@ -226,29 +233,36 @@ fn print_help() {
 
     println!("{BOLD}Example:{RESET}");
     println!(
-        " {BOLD}./sudokusolve -p -d{RESET} 250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n"
-    );
+    " {BOLD}./sudokusolve -p -d{RESET} 250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n"
+);
 
     println!("{BOLD}Options:{RESET}");
-    println!(" {BOLD}-g, --grid  <grid>{RESET} sets the grid to be solved");
-    println!(" {BOLD}-p, --print       {RESET} if set every iteration will be visualized");
-    println!(" {BOLD}-d, --delay <ms>  {RESET} sets the delay of every iteration");
-    println!(" {BOLD}-h, --help        {RESET} shows this help dialog");
+    println!(" {BOLD}-g, --grid    <grid>{RESET} sets the grid to be solved");
+    println!(" {BOLD}-p, --print         {RESET} if set every iteration will be visualized");
+    println!(" {BOLD}-d, --delay   <ms>  {RESET} sets the delay of every iteration");
+    println!(" {BOLD}-m, --measure       {RESET} if set time will be measured and shown");
+    println!(" {BOLD}-h, --help          {RESET} shows this help dialog");
 
     /* Show terminal cursor */
     print!("\x1b[?25h");
 }
 
 fn main() {
+    /* Clear screen */
+    print!("\x1b[2J");
+
+    /* Hide cursor */
+    print!("\x1b[?25l");
+
     /* Register handler for ^c */
-    /* Must be in the first position because “move” is used here, which ensures that the ownership of all surrounding variables is transferred to the closure. */
+    /* INFO: Must be in the first position because “move” is used here, which ensures that the ownership of all surrounding variables is transferred to the closure. */
     ctrlc::set_handler(move || {
         /* Show terminal cursor */
         println!("\x1b[?25h");
 
         process::exit(0);
     })
-    .expect("[{RED}{BOLD}CRITICAL{RESET}]: Error setting abort handler.");
+        .expect("[{RED}{BOLD}CRITICAL{RESET}]: Error setting abort handler.");
 
     let args: Vec<String> = env::args().collect();
 
@@ -263,12 +277,6 @@ fn main() {
         }
     };
 
-    /* Clear screen */
-    print!("\x1b[2J");
-
-    /* Hide cursor */
-    print!("\x1b[?25l");
-
     /* Grid */
     let example: [[u8; 9]; 9] = [
         [1, 0, 0, 0, 0, 7, 0, 9, 0],
@@ -278,11 +286,14 @@ fn main() {
         [0, 1, 0, 0, 8, 0, 0, 0, 2],
         [6, 0, 0, 0, 0, 4, 0, 0, 0],
         [3, 0, 0, 0, 0, 0, 0, 1, 0],
-        [0, 4, 1, 0, 0, 0, 0, 0, 7],
+        [0, 4, 1, 0, 9, 0, 0, 0, 7],
         [0, 0, 7, 0, 0, 0, 3, 0, 0],
     ];
 
     let mut sudoku = Sudoku::new(example, opts);
+
+    /* Measure process time */
+    let now = time::Instant::now();
 
     match sudoku.solve() {
         Ok(_) => {
@@ -290,8 +301,13 @@ fn main() {
         }
 
         Err(e) => {
+            sudoku.print();
             println!("[{RED}ERROR{RESET}]: {:?}", e);
         }
+    }
+
+    if sudoku.opts.measure {
+        println!("[{YELLOW}INFO{RESET}]: Finished in {BOLD}{:.2?}.{RESET}", now.elapsed());
     }
 
     /* Show terminal cursor */
