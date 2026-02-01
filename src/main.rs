@@ -25,16 +25,14 @@ enum SudokuError {
 }
 
 struct Sudoku {
-    init: [[u8; 9]; 9],
     grid: [[u8; 9]; 9],
     opts: SudokuOptions,
 }
 
 impl Sudoku {
-    fn new(grid: [[u8; 9]; 9], opts: SudokuOptions) -> Self {
+    fn new(opts: SudokuOptions) -> Self {
         Self {
-            init: grid,
-            grid,
+            grid: opts.initial_grid,
             opts,
         }
     }
@@ -72,6 +70,7 @@ struct SudokuOptions {
     print: bool,
     delay: time::Duration,
     measure: bool,
+    initial_grid: [[u8; 9]; 9],
 }
 
 trait Solvable {
@@ -103,7 +102,7 @@ impl Solvable for Sudoku {
                     print!("{VERTICAL} ");
                 }
 
-                if self.init[row][col] != 0 {
+                if self.opts.initial_grid[row][col] != 0 {
                     print!("{BOLD}{RED}{}{RESET} ", self.grid[row][col]);
                 } else if self.grid[row][col] != 0 {
                     print!("{GREEN}{}{RESET} ", self.grid[row][col]);
@@ -182,14 +181,19 @@ fn handle_args(args: &[String]) -> Result<SudokuOptions, ArgumentError> {
         print: false,
         delay: time::Duration::from_millis(0),
         measure: false,
+        initial_grid: [[0; 9]; 9],
     };
 
     let mut iter = args.iter().skip(1);
 
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "-g" | "--grid" => { /* TODO: Implement grid input [0.1.2...5..3.3.24.324 ...] */ }
+            "-g" | "--grid" => { /* TODO: Implement grid input [0.1.2...5..3.3.24.324 ...] */ 
+                if let Some(next_arg) = iter.next() {
+                    opts.initial_grid = parse_grid(next_arg);
 
+                }
+            }
             "-p" | "--print" => {
                 opts.print = true;
             }
@@ -227,13 +231,34 @@ fn handle_args(args: &[String]) -> Result<SudokuOptions, ArgumentError> {
     Ok(opts)
 }
 
+fn parse_grid(grid_str: &str) -> [[u8; 9]; 9] {
+    let mut result: [[u8; 9]; 9] = [[0; 9]; 9];
+
+    for (i, c) in grid_str.chars().enumerate() {
+        if i == 81 { break; }
+
+        match c.to_digit(10) {
+            Some(v) if v >= 1 => {
+                result[i / 9][i % 9] = v as u8;
+            }
+
+            _ => {
+                result[i / 9][i % 9] = 0;
+            }
+        }
+    }
+
+    result
+}
+
 fn print_help() {
     println!("{BOLD}Usage: ./sudokusolve{RESET} [options]\n");
 
     println!("{BOLD}Example:{RESET}");
+    println!("  Creates a 9x9 Sudoku, prints every iteration with a delay of 250ms.");
     println!(
-        " {BOLD}./sudokusolve -p -d{RESET} 250 {BOLD}-g{RESET} \"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\"\n"
-    );
+    " {BOLD}./sudokusolve -p -d{RESET} 250 {BOLD}-g{RESET} 53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\n"
+);
 
     println!("{BOLD}Options:{RESET}");
     println!(" {BOLD}-g, --grid    <grid>{RESET} sets the grid to be solved");
@@ -252,7 +277,7 @@ fn main() {
 
         process::exit(0);
     })
-    .expect("[{RED}{BOLD}CRITICAL{RESET}]: Error setting abort handler.");
+        .expect("[{RED}{BOLD}CRITICAL{RESET}]: Error setting abort handler.");
 
     let args: Vec<String> = env::args().collect();
 
@@ -273,20 +298,7 @@ fn main() {
     /* Hide cursor */
     print!("\x1b[?25l");
 
-    /* Grid */
-    let example: [[u8; 9]; 9] = [
-        [1, 0, 0, 0, 0, 7, 0, 9, 0],
-        [0, 3, 0, 0, 2, 0, 0, 0, 8],
-        [0, 0, 9, 6, 0, 0, 5, 0, 0],
-        [0, 0, 5, 3, 0, 0, 9, 0, 0],
-        [0, 1, 0, 0, 8, 0, 0, 0, 2],
-        [6, 0, 0, 0, 0, 4, 0, 0, 0],
-        [3, 0, 0, 0, 0, 0, 0, 1, 0],
-        [0, 4, 1, 0, 0, 0, 0, 0, 7],
-        [0, 0, 7, 0, 0, 0, 3, 0, 0],
-    ];
-
-    let mut sudoku = Sudoku::new(example, opts);
+    let mut sudoku = Sudoku::new(opts);
 
     /* Measure process time */
     let now = time::Instant::now();
